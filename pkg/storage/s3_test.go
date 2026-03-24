@@ -84,7 +84,24 @@ func (m *mockS3Downloader) Download(ctx context.Context, w io.WriterAt, input *s
 	return 0, nil
 }
 
-type mockS3PresignClient struct{}
+type mockS3PresignClient struct {
+	mockHeadObject func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error)
+}
+
+func (m *mockS3PresignClient) ListObjectsV2(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	return &s3.ListObjectsV2Output{}, nil
+}
+
+func (m *mockS3PresignClient) HeadObject(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+	if m.mockHeadObject != nil {
+		return m.mockHeadObject(ctx, params, optFns...)
+	}
+	return &s3.HeadObjectOutput{}, nil
+}
+
+func (m *mockS3PresignClient) CopyObject(ctx context.Context, params *s3.CopyObjectInput, optFns ...func(*s3.Options)) (*s3.CopyObjectOutput, error) {
+	return nil, nil
+}
 
 func (m *mockS3PresignClient) PresignGetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.PresignOptions)) (*signer.PresignedHTTPRequest, error) {
 	return &signer.PresignedHTTPRequest{
@@ -125,8 +142,8 @@ func TestS3Storage_UploadProviderReleaseFiles(t *testing.T) {
 			namespace:   "hashicorp",
 			name:        "random",
 			filename:    "terraform-provider-random_2.0.0_linux_amd64.zip",
-			client: &mockS3Client{
-				headObject: headExistingObject,
+			client: &mockS3PresignClient{
+				mockHeadObject: headExistingObject,
 			},
 			wantErr: func(t assertion.TestingT, err error, i ...interface{}) bool {
 				return assertion.Error(t, err)
@@ -138,8 +155,8 @@ func TestS3Storage_UploadProviderReleaseFiles(t *testing.T) {
 			name:        "random",
 			filename:    "terraform-provider-random_2.0.0_linux_amd64.zip",
 			content:     "test",
-			client: &mockS3Client{
-				headObject: headNonExistingObject,
+			client: &mockS3PresignClient{
+				mockHeadObject: headNonExistingObject,
 			},
 			wantErr: func(t assertion.TestingT, err error, i ...interface{}) bool {
 				return !assertion.NoError(t, err)
@@ -162,6 +179,31 @@ func TestS3Storage_UploadProviderReleaseFiles(t *testing.T) {
 
 			assertion.Equal(t, tc.content, u.b.String())
 		})
+	}
+}
+
+func loadMockSigningKeysData() map[string][]byte {
+	return map[string][]byte{
+		"providers/hashicorp/signing-keys.json": []byte(`{
+			"gpg_public_keys": [
+				{
+					"key_id": "A6A9DAAE63EDF2CF",
+					"ascii_armor": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...-----END PGP PUBLIC KEY BLOCK-----\n",
+					"source": "https://keyserver.example.com",
+					"source_url": "https://keyserver.example.com/keys/A6A9DAAE63EDF2CF.asc"
+				}
+			]
+		}`),
+		"providers/nekottyo/signing-keys.json": []byte(`{
+			"public_gpg_keys": [
+				{
+					"fingerprint": "9A206C82DEE1A672",
+					"armored_key": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...-----END PGP PUBLIC KEY BLOCK-----\n",
+					"origin": "https://another-keyserver.example.com",
+					"origin_url": "https://another-keyserver.example.com/keys/9A206C82DEE1A672.asc"
+				}
+			]
+		}`),
 	}
 }
 
@@ -251,8 +293,8 @@ func TestSigningKeys(t *testing.T) {
 		t.Run(tc.annotation, func(t *testing.T) {
 			s := S3Storage{
 				downloader: &mockS3Downloader{data: tc.data, error: tc.returnError},
-				client: &mockS3Client{
-					headObject: headExistingObject,
+				client: &mockS3PresignClient{
+					mockHeadObject: headExistingObject,
 				},
 			}
 
@@ -289,8 +331,8 @@ func TestS3Storage_getProvider(t *testing.T) {
 		{
 			name: "provider does not exist",
 			fields: fields{
-				client: &mockS3Client{
-					headObject: headNonExistingObject,
+				client: &mockS3PresignClient{
+					mockHeadObject: headNonExistingObject,
 				},
 				downloader: &mockS3Downloader{},
 			},
@@ -309,8 +351,8 @@ func TestS3Storage_getProvider(t *testing.T) {
 		{
 			name: "internal provider exists",
 			fields: fields{
-				client: &mockS3Client{
-					headObject: headExistingObject,
+				client: &mockS3PresignClient{
+					mockHeadObject: headExistingObject,
 				},
 				downloader: &mockS3Downloader{
 					data: map[string][]byte{
@@ -353,8 +395,8 @@ func TestS3Storage_getProvider(t *testing.T) {
 		{
 			name: "mirrored provider exists",
 			fields: fields{
-				client: &mockS3Client{
-					headObject: headExistingObject,
+				client: &mockS3PresignClient{
+					mockHeadObject: headExistingObject,
 				},
 				downloader: &mockS3Downloader{
 					data: map[string][]byte{
