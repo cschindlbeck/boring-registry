@@ -34,7 +34,7 @@ data:
           proxy_cache_valid 404 {{ .Values.cachingProxy.cache.miss }};
 
           # Cache key including the sanitized authorization header
-          proxy_cache_key "$host$request_uri$sanitized_auth";
+          proxy_cache_key "$host$request_uri$sanitized_auth$is_args$args";
 
           # Ignore cache control headers from backend
           proxy_ignore_headers Cache-Control Expires;

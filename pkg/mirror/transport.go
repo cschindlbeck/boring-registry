@@ -245,8 +245,19 @@ func decodeUpstreamProviderResponse(r *http.Response) (*core.Provider, error) {
 	}
 
 	var response core.Provider
-	if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
-		return nil, err
+	decoder := json.NewDecoder(r.Body)
+
+	if err := decoder.Decode(&response); err != nil {
+		if _, ok := err.(*json.UnmarshalTypeError); ok {
+			// Assume OpenTofu field differences (e.g., public_gpg_keys)
+			var experimental OpenTofuProvider
+			if err := json.NewDecoder(r.Body).Decode(&experimental); err != nil {
+				return nil, err
+			}
+			response.SigningKeys.GPGPublicKeys = mapOpenTofuKeys(experimental.SigningKeys.PublicGPGKeys)
+		} else {
+			return nil, err
+		}
 	}
 	return &response, nil
 }
