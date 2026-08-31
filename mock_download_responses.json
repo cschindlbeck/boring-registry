@@ -1,0 +1,32 @@
+{
+  "terraform": {
+    "namespace": "hashicorp",
+    "name": "aws",
+    "version": "4.71.0",
+    "signing_keys": {
+      "gpg_public_keys": [
+        {
+          "key_id": "A6A9DAAE63EDF2CF",
+          "ascii_armor": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...-----END PGP PUBLIC KEY BLOCK-----\n",
+          "source": "https://keyserver.example.com",
+          "source_url": "https://keyserver.example.com/keys/A6A9DAAE63EDF2CF.asc"
+        }
+      ]
+    }
+  },
+  "opentofu": {
+    "namespace": "nekottyo",
+    "name": "jsonschema",
+    "version": "0.1.1",
+    "signing_keys": {
+      "public_gpg_keys": [
+        {
+          "fingerprint": "9A206C82DEE1A672",
+          "armored_key": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...-----END PGP PUBLIC KEY BLOCK-----\n",
+          "origin": "https://another-keyserver.example.com",
+          "origin_url": "https://another-keyserver.example.com/keys/9A206C82DEE1A672.asc"
+        }
+      ]
+    }
+  }
+}
